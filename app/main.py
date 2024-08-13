@@ -14,11 +14,17 @@ def main():
         client_request = client_data.decode().split('\r\n')
         request_line = client_request[0]
         request_target = request_line.split()[1]
+        base_url = request_target.split("/")[1]
 
-        if request_target == "/":
-            response = "HTTP/1.1 200 OK\r\n\r\n"
+        if base_url == "echo":
+            response_body = request_target.split("/")[2]
+            content_length = len(response_body)
+            content_type = "text/plain"
+            response_status_line = "HTTP/1.1 200 OK\r\n"
+            response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+            response = f"{response_status_line}{response_headers}{response_body}"
         else:
-            response = "HTTP/1.1 404 Not Found\r\n\r\n"
+            response = "HTTP/1.1 404 Not Found\r\n"
 
         client_socket.sendall(response.encode())
         client_socket.close()
