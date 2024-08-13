@@ -11,9 +11,15 @@ def main():
         print(f"Connection accepted from {client_address}.")
 
         client_data = client_socket.recv(1024)
-        print(f"client data: {client_data.decode()}")
+        client_request = client_data.decode().split('\r\n')
+        request_line = client_request[0]
+        request_target = request_line.split()[1]
 
-        response = "HTTP/1.1 200 OK\r\n\r\n"
+        if request_target == "/":
+            response = "HTTP/1.1 200 OK\r\n\r\n"
+        else:
+            response = "HTTP/1.1 404 Not Found\r\n\r\n"
+
         client_socket.sendall(response.encode())
         client_socket.close()
     except Exception as e:
