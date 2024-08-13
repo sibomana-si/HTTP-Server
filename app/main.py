@@ -23,6 +23,8 @@ def main():
             response_status_line = "HTTP/1.1 200 OK\r\n"
             response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
             response = f"{response_status_line}{response_headers}{response_body}"
+        elif base_url == "":
+            response = "HTTP/1.1 200 OK\r\n\r\n"
         else:
             response = "HTTP/1.1 404 Not Found\r\n\r\n"
 
