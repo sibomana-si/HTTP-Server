@@ -24,7 +24,7 @@ def main():
             response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
             response = f"{response_status_line}{response_headers}{response_body}"
         else:
-            response = "HTTP/1.1 404 Not Found\r\n"
+            response = "HTTP/1.1 404 Not Found\r\n\r\n"
 
         client_socket.sendall(response.encode())
         client_socket.close()
