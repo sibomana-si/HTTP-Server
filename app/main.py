@@ -12,9 +12,15 @@ def main():
         client_data = client_socket.recv(1024)
         client_request = client_data.decode().split('\r\n')
         request_line = client_request[0]
-        user_agent_header = client_request[3]
         request_target = request_line.split()[1]
         base_url = request_target.split("/")[1]
+        request_headers = {}
+        for line in client_request[1:]:
+            if line:
+                header = line.split(":")[0]
+                if header in {'Host', 'User-Agent', 'Accept'}:
+                    request_headers[header] = line
+        user_agent_header = request_headers.get('User-Agent', '')
 
         if base_url == "user-agent":
             response_body = user_agent_header.split(":")[1].strip()
