@@ -1,4 +1,3 @@
-
 import socket
 
 
@@ -13,10 +12,18 @@ def main():
         client_data = client_socket.recv(1024)
         client_request = client_data.decode().split('\r\n')
         request_line = client_request[0]
+        user_agent_header = client_request[3]
         request_target = request_line.split()[1]
         base_url = request_target.split("/")[1]
 
-        if base_url == "echo":
+        if base_url == "user-agent":
+            response_body = user_agent_header.split(":")[1].strip()
+            content_length = len(response_body)
+            content_type = "text/plain"
+            response_status_line = "HTTP/1.1 200 OK\r\n"
+            response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+            response = f"{response_status_line}{response_headers}{response_body}"
+        elif base_url == "echo":
             response_body = request_target.split("/")[2]
             content_length = len(response_body)
             content_type = "text/plain"
@@ -31,7 +38,7 @@ def main():
         client_socket.sendall(response.encode())
         client_socket.close()
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR: {e}")
     finally:
         server_socket.close()
         print("Server shut down")
