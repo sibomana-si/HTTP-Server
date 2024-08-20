@@ -96,9 +96,9 @@ async def main():
 if __name__ == "__main__":
     try:
         opts = getopt(sys.argv[1:], '', ['directory='])
-        if len(opts[0]) == 0:
-            raise Exception("file directory not provided")
-        file_dir = opts[0][0][1]
+        file_dir = ""
+        if len(opts[0]) != 0:
+            file_dir = opts[0][0][1]
         asyncio.run(main())
     except (Exception, KeyboardInterrupt) as e:
         print(f"ERROR: {e}")
