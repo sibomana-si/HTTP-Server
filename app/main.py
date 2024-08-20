@@ -1,4 +1,7 @@
 import asyncio
+import sys
+from getopt import getopt
+from pathlib import Path
 
 
 async def client_handler(reader, writer):
@@ -30,23 +33,53 @@ async def generate_response(request):
                     request_headers[header] = line
         user_agent_header = request_headers.get("User-Agent", "")
 
-        if base_url in {"echo", "user-agent"}:
-            if base_url == "echo":
-                response_body = request_target.split("/")[2]
-            else:
-                response_body = user_agent_header.split(":")[1].strip()
-            content_length = len(response_body)
-            content_type = "text/plain"
-            response_status_line = "HTTP/1.1 200 OK\r\n"
-            response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
-            response = f"{response_status_line}{response_headers}{response_body}"
-        elif base_url == "":
+        if base_url == "":
             response = "HTTP/1.1 200 OK\r\n\r\n"
+        elif base_url == "echo":
+            response = await get_echo_response(request_target)
+        elif base_url == "files":
+            response = await get_files_response(request_target)
+        elif base_url == "user-agent":
+            response = await get_user_agent_response(user_agent_header)
 
         return response
     except Exception as ex:
         print(f"ERROR in generate_response: {client_request}|{ex}")
         raise e
+
+
+async def get_echo_response(request_target):
+    content_type = "text/plain"
+    response_status_line = "HTTP/1.1 200 OK\r\n"
+    response_body = request_target.split("/")[2]
+    content_length = len(response_body)
+    response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+    response = f"{response_status_line}{response_headers}{response_body}"
+    return response
+
+
+async def get_files_response(request_target):
+    target_file = Path(file_dir + request_target.split("/")[2])
+    if target_file.is_file():
+        content_type = "application/octet-stream"
+        response_status_line = "HTTP/1.1 200 OK\r\n"
+        content_length = target_file.stat().st_size
+        response_body = target_file.read_text()
+        response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+        response = f"{response_status_line}{response_headers}{response_body}"
+    else:
+        response = "HTTP/1.1 404 Not Found\r\n\r\n"
+    return response
+
+
+async def get_user_agent_response(user_agent_header):
+    content_type = "text/plain"
+    response_status_line = "HTTP/1.1 200 OK\r\n"
+    response_body = user_agent_header.split(":")[1].strip()
+    content_length = len(response_body)
+    response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+    response = f"{response_status_line}{response_headers}{response_body}"
+    return response
 
 
 async def main():
@@ -62,6 +95,10 @@ async def main():
 
 if __name__ == "__main__":
     try:
+        opts = getopt(sys.argv[1:], '', ['directory='])
+        if len(opts[0]) == 0:
+            raise Exception("file directory not provided")
+        file_dir = opts[0][0][1]
         asyncio.run(main())
     except (Exception, KeyboardInterrupt) as e:
         print(f"ERROR: {e}")
