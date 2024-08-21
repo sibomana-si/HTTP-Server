@@ -51,14 +51,16 @@ async def get_echo_response(client_request, accept_encoding_header):
     request_target = client_request[0].split()[1]
     content_type = "text/plain"
     response_status_line = "HTTP/1.1 200 OK\r\n"
-    request_compression = accept_encoding_header.split(":")[1].strip()
     response_body = request_target.split("/")[2]
     content_length = len(response_body)
-    if request_compression in compression_schemes:
-        response_headers = (f"Content-Type: {content_type}\r\nContent-Encoding: {request_compression}\r\n"
-                            f"Content-Length: {content_length}\r\n\r\n")
-    else:
-        response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+    response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+
+    if len(accept_encoding_header) > 0:
+        request_compression = accept_encoding_header.split(":")[1].strip()
+        if request_compression in compression_schemes:
+            response_headers = (f"Content-Type: {content_type}\r\nContent-Encoding: {request_compression}\r\n"
+                                f"Content-Length: {content_length}\r\n\r\n")
+            
     response = f"{response_status_line}{response_headers}{response_body}"
     return response
 
