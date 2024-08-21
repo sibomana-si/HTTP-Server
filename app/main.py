@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import gzip
 from getopt import getopt
 from pathlib import Path
 
@@ -10,7 +11,7 @@ async def client_handler(reader, writer):
     try:
         request = await reader.read(1024)
         response = await generate_response(request)
-        writer.write(response.encode())
+        writer.write(response)
         await writer.drain()
         writer.close()
     except Exception as ex:
@@ -22,7 +23,7 @@ async def generate_response(request):
     try:
         request_target = client_request[0].split()[1]
         base_url = request_target.split("/")[1]
-        response = "HTTP/1.1 404 Not Found\r\n\r\n"
+        response = "HTTP/1.1 404 Not Found\r\n\r\n".encode()
         request_headers = {}
         for line in client_request[1:]:
             if line:
@@ -33,7 +34,7 @@ async def generate_response(request):
         accept_encoding_header = request_headers.get("Accept-Encoding", "")
 
         if base_url == "":
-            response = "HTTP/1.1 200 OK\r\n\r\n"
+            response = "HTTP/1.1 200 OK\r\n\r\n".encode()
         elif base_url == "echo":
             response = await get_echo_response(client_request, accept_encoding_header)
         elif base_url == "files":
@@ -50,21 +51,24 @@ async def generate_response(request):
 async def get_echo_response(client_request, accept_encoding_header):
     request_target = client_request[0].split()[1]
     content_type = "text/plain"
-    response_status_line = "HTTP/1.1 200 OK\r\n"
+    response_status_line = "HTTP/1.1 200 OK\r\n".encode()
     response_body = request_target.split("/")[2]
     content_length = len(response_body)
-    response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+    response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n".encode()
+    response_body = response_body.encode()
 
     if len(accept_encoding_header) > 0:
         client_compression_schemes = accept_encoding_header.split(":")[1].split(",")
         for client_compression_scheme in client_compression_schemes:
             response_compression_scheme = client_compression_scheme.strip()
             if response_compression_scheme in server_compression_schemes:
+                response_body = gzip.compress(response_body, mtime=0)
+                content_length = len(response_body)
                 response_headers = (f"Content-Type: {content_type}\r\n"
                                     f"Content-Encoding: {response_compression_scheme}\r\n"
-                                    f"Content-Length: {content_length}\r\n\r\n")
+                                    f"Content-Length: {content_length}\r\n\r\n").encode()
 
-    response = f"{response_status_line}{response_headers}{response_body}"
+    response = response_status_line + response_headers + response_body
     return response
 
 
@@ -86,7 +90,7 @@ async def get_files_response(client_request):
         target_file.write_text(request_data)
         response = "HTTP/1.1 201 Created\r\n\r\n"
 
-    return response
+    return response.encode()
 
 
 async def get_user_agent_response(user_agent_header):
@@ -96,7 +100,7 @@ async def get_user_agent_response(user_agent_header):
     content_length = len(response_body)
     response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
     response = f"{response_status_line}{response_headers}{response_body}"
-    return response
+    return response.encode()
 
 
 async def main():
