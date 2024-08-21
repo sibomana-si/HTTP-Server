@@ -56,11 +56,14 @@ async def get_echo_response(client_request, accept_encoding_header):
     response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
 
     if len(accept_encoding_header) > 0:
-        request_compression = accept_encoding_header.split(":")[1].strip()
-        if request_compression in compression_schemes:
-            response_headers = (f"Content-Type: {content_type}\r\nContent-Encoding: {request_compression}\r\n"
-                                f"Content-Length: {content_length}\r\n\r\n")
-            
+        client_compression_schemes = accept_encoding_header.split(":")[1].split(",")
+        for client_compression_scheme in client_compression_schemes:
+            response_compression_scheme = client_compression_scheme.strip()
+            if response_compression_scheme in server_compression_schemes:
+                response_headers = (f"Content-Type: {content_type}\r\n"
+                                    f"Content-Encoding: {response_compression_scheme}\r\n"
+                                    f"Content-Length: {content_length}\r\n\r\n")
+
     response = f"{response_status_line}{response_headers}{response_body}"
     return response
 
@@ -113,7 +116,7 @@ if __name__ == "__main__":
         file_dir = ""
         if len(opts[0]) != 0:
             file_dir = opts[0][0][1]
-        compression_schemes = {"gzip", }
+        server_compression_schemes = {"gzip", }
         asyncio.run(main())
     except (Exception, KeyboardInterrupt) as e:
         print(f"ERROR: {e}")
