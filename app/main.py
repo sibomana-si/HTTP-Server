@@ -15,29 +15,36 @@ async def client_handler(reader: StreamReader, writer: StreamWriter):
     client_address: str = writer.get_extra_info('peername')
     logger.info(f"Connection accepted from {client_address}.")
     try:
-        request: bytes = await reader.read(1024)
-        response: bytes = await generate_response(request)
-        writer.write(response)
-        await writer.drain()
-        writer.close()
+        while True:
+            request: bytes = await reader.read(1024)
+            if not request:
+                break
+            client_request: list[str] = request.decode().split('\r\n')
+            request_headers = {}
+            for line in client_request[1:]:
+                if line:
+                    header = line.split(":")[0]
+                    if header in {"Host", "User-Agent", "Accept", "Accept-Encoding", "Connection"}:
+                        request_headers[header] = line
+            connection_status: str = request_headers.get("Connection", "")
+            response: bytes = await generate_response(client_request, request_headers)
+            writer.write(response)
+            await writer.drain()
+            if connection_status == "close":
+                break
     except Exception as ex:
         logger.exception(f"ERROR in client_handler: {client_address}|{ex}")
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
-
-async def generate_response(request: bytes) -> bytes:
-    client_request: list[str] = request.decode().split('\r\n')
+async def generate_response(client_request: list[str], request_headers: dict[str, str]) -> bytes:
     try:
         request_target: str = client_request[0].split()[1]
         base_url: str = request_target.split("/")[1]
-        response = bytes("HTTP/1.1 404 Not Found\r\n\r\n", "utf-8")
-        request_headers = {}
-        for line in client_request[1:]:
-            if line:
-                header = line.split(":")[0]
-                if header in {"Host", "User-Agent", "Accept", "Accept-Encoding"}:
-                    request_headers[header] = line
         user_agent_header: str = request_headers.get("User-Agent", "")
         accept_encoding_header: str = request_headers.get("Accept-Encoding", "")
+        response = bytes("HTTP/1.1 404 Not Found\r\n\r\n", "utf-8")
 
         if base_url == "":
             response = "HTTP/1.1 200 OK\r\n\r\n".encode()
