@@ -30,7 +30,7 @@ async def client_handler(reader: StreamReader, writer: StreamWriter):
             response: bytes = await generate_response(client_request, request_headers)
             writer.write(response)
             await writer.drain()
-            if connection_status == "close":
+            if "close" in connection_status:
                 break
     except Exception as ex:
         logger.exception(f"ERROR in client_handler: {client_address}|{ex}")
@@ -42,26 +42,31 @@ async def generate_response(client_request: list[str], request_headers: dict[str
     try:
         request_target: str = client_request[0].split()[1]
         base_url: str = request_target.split("/")[1]
-        user_agent_header: str = request_headers.get("User-Agent", "")
-        accept_encoding_header: str = request_headers.get("Accept-Encoding", "")
-        response = bytes("HTTP/1.1 404 Not Found\r\n\r\n", "utf-8")
+        connection_status: str = request_headers.get("Connection", "")
 
         if base_url == "":
             response = "HTTP/1.1 200 OK\r\n\r\n".encode()
         elif base_url == "echo":
-            response: bytes = await get_echo_response(client_request, accept_encoding_header)
+            response: bytes = await get_echo_response(client_request, request_headers)
         elif base_url == "files":
-            response: bytes = await get_files_response(client_request)
+            response: bytes = await get_files_response(client_request, request_headers)
         elif base_url == "user-agent":
-            response: bytes = await get_user_agent_response(user_agent_header)
+            response: bytes = await get_user_agent_response(request_headers)
+        else:
+            response = bytes("HTTP/1.1 404 Not Found\r\n\r\n", "utf-8")
+
+        if ((response.endswith(b'200 OK\r\n\r\n') or response.endswith(b'201 Created\r\n\r\n')
+             or response.endswith(b'404 Not Found\r\n\r\n')) and "close" in connection_status):
+            response = response.replace(b'\r\n\r\n', b'\r\nConnection: close\r\n\r\n')
 
         return response
     except Exception as ex:
         raise ex
 
-
-async def get_echo_response(client_request: list[str], accept_encoding_header: str) -> bytes:
+async def get_echo_response(client_request: list[str], request_headers: dict[str, str]) -> bytes:
     request_target: str = client_request[0].split()[1]
+    accept_encoding_header: str = request_headers.get("Accept-Encoding", "")
+    connection_status: str = request_headers.get("Connection", "")
     content_type = "text/plain"
     response_status_line: bytes = "HTTP/1.1 200 OK\r\n".encode()
     response_body_plain: str = request_target.split("/")[2]
@@ -79,13 +84,15 @@ async def get_echo_response(client_request: list[str], accept_encoding_header: s
                 response_headers: bytes = (f"Content-Type: {content_type}\r\n"
                                     f"Content-Encoding: {response_compression_scheme}\r\n"
                                     f"Content-Length: {content_length}\r\n\r\n").encode()
+    if "close" in connection_status:
+        response_headers = response_headers.replace(b'\r\n\r\n', b'\r\nConnection: close\r\n\r\n')
 
     response: bytes = response_status_line + response_headers + response_body
     return response
 
-
-async def get_files_response(client_request: list[str]) -> bytes:
+async def get_files_response(client_request: list[str], request_headers: dict[str, str]) -> bytes:
     request_data = client_request[-1]
+    connection_status: str = request_headers.get("Connection", "")
     http_method, request_target, http_version = client_request[0].split()
     target_file = Path(file_dir + request_target.split("/")[2])
     response = "HTTP/1.1 404 Not Found\r\n\r\n"
@@ -97,6 +104,8 @@ async def get_files_response(client_request: list[str]) -> bytes:
             content_length = target_file.stat().st_size
             response_body = target_file.read_text()
             response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+            if "close" in connection_status:
+                response_headers = response_headers.replace("\r\n", "\r\nConnection: close\r\n\r\n")
             response = f"{response_status_line}{response_headers}{response_body}"
     elif http_method == "POST":
         target_file.write_text(request_data)
@@ -104,16 +113,18 @@ async def get_files_response(client_request: list[str]) -> bytes:
 
     return response.encode()
 
-
-async def get_user_agent_response(user_agent_header: str) -> bytes:
+async def get_user_agent_response(request_headers: dict[str, str]) -> bytes:
+    user_agent_header: str = request_headers.get("User-Agent", "")
+    connection_status: str = request_headers.get("Connection", "")
     content_type = "text/plain"
     response_status_line = "HTTP/1.1 200 OK\r\n"
     response_body = user_agent_header.split(":")[1].strip()
     content_length = len(response_body)
     response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
+    if "close" in connection_status:
+        response_headers = response_headers.replace("\r\n", "\r\nConnection: close\r\n\r\n")
     response = f"{response_status_line}{response_headers}{response_body}"
     return response.encode()
-
 
 async def main():
     host_ip = '127.0.0.1'
