@@ -1,38 +1,64 @@
 [![progress-banner](https://backend.codecrafters.io/progress/http-server/a14d9049-3093-49b4-919c-8fd43b6d90e3)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-This is a starting point for Python solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
+# Description
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
+A lightweight HTTP server implementation that handles basic HTTP requests and responses.
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+This server was built as part of the [CodeCrafters HTTP Server Challenge](https://codecrafters.io/challenges/http-server).
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+## Features
 
-# Passing the first stage
+- Support for HTTP/1.1 protocol
+- Content compression with gzip
+- Connection persistence
+- Asynchronous request handling with asyncio
+- Multiple endpoint support:
+  - `/` - Returns 200 OK
+  - `/echo/<message>` - Echoes back the message
+  - `/user-agent` - Returns the User-Agent header from the request
 
-The entry point for your HTTP server implementation is in `app/main.py`. Study
-and uncomment the relevant code, and push your changes to pass the first stage:
+## Usage
 
-```sh
-git add .
-git commit -m "pass 1st stage" # any msg
-git push origin master
+Run the server with:
+
+```bash
+python main.py [--directory=<directory_path>]
 ```
 
-Time to move on to the next stage!
+Where:
+- `--directory`: Optional parameter to specify the directory for file operations
 
-# Stage 2 & beyond
 
-Note: This section is for stages 2 and beyond.
+## API Endpoints
 
-1. Ensure you have `python (3.11)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `app/main.py`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+### Root Endpoint
+- **URL**: `/`
+- **Method**: GET
+- **Response**: Returns a 200 OK status
+
+### Echo Endpoint
+- **URL**: `/echo/<message>`
+- **Method**: GET
+- **Response**: Returns the message with a 200 OK status
+- **Features**: Supports gzip compression if the client accepts it
+
+### User-Agent Endpoint
+- **URL**: `/user-agent`
+- **Method**: GET
+- **Response**: Returns the User-Agent header from the request
+
+### Files Endpoint
+- **URL**: `/files/<filename>`
+- **Methods**: 
+  - **GET**: Retrieves the content of the specified file
+  - **POST**: Creates or updates the specified file with the request body
+- **Response**: 
+  - 200 OK with file content (GET)
+  - 201 Created (POST)
+  - 404 Not Found if the file doesn't exist (GET)
+
+## Technical Details
+
+- Supports HTTP headers parsing and generation
+- Handles persistent connections with proper Connection header handling
+- Built with Python's asyncio for handling concurrent connections
