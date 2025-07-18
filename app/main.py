@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 
-async def client_handler(reader: StreamReader, writer: StreamWriter):
+async def client_handler(reader: StreamReader, writer: StreamWriter) -> None:
     client_address: str = writer.get_extra_info('peername')
     logger.info(f"Connection accepted from {client_address}.")
     try:
@@ -38,6 +38,7 @@ async def client_handler(reader: StreamReader, writer: StreamWriter):
         writer.close()
         await writer.wait_closed()
 
+
 async def generate_response(client_request: list[str], request_headers: dict[str, str]) -> bytes:
     try:
         request_target: str = client_request[0].split()[1]
@@ -55,13 +56,13 @@ async def generate_response(client_request: list[str], request_headers: dict[str
         else:
             response = bytes("HTTP/1.1 404 Not Found\r\n\r\n", "utf-8")
 
-        if ((response.endswith(b'200 OK\r\n\r\n') or response.endswith(b'201 Created\r\n\r\n')
-             or response.endswith(b'404 Not Found\r\n\r\n')) and "close" in connection_status):
+        if 'close' in connection_status and b'Connection: close' not in response and response.endswith(b'\r\n\r\n'):
             response = response.replace(b'\r\n\r\n', b'\r\nConnection: close\r\n\r\n')
 
         return response
     except Exception as ex:
         raise ex
+
 
 async def get_echo_response(client_request: list[str], request_headers: dict[str, str]) -> bytes:
     request_target: str = client_request[0].split()[1]
@@ -90,6 +91,7 @@ async def get_echo_response(client_request: list[str], request_headers: dict[str
     response: bytes = response_status_line + response_headers + response_body
     return response
 
+
 async def get_files_response(client_request: list[str], request_headers: dict[str, str]) -> bytes:
     request_data = client_request[-1]
     connection_status: str = request_headers.get("Connection", "")
@@ -105,13 +107,14 @@ async def get_files_response(client_request: list[str], request_headers: dict[st
             response_body = target_file.read_text()
             response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
             if "close" in connection_status:
-                response_headers = response_headers.replace("\r\n", "\r\nConnection: close\r\n\r\n")
+                response_headers = response_headers.replace("\r\n\r\n", "\r\nConnection: close\r\n\r\n")
             response = f"{response_status_line}{response_headers}{response_body}"
     elif http_method == "POST":
         target_file.write_text(request_data)
         response = "HTTP/1.1 201 Created\r\n\r\n"
 
     return response.encode()
+
 
 async def get_user_agent_response(request_headers: dict[str, str]) -> bytes:
     user_agent_header: str = request_headers.get("User-Agent", "")
@@ -122,9 +125,10 @@ async def get_user_agent_response(request_headers: dict[str, str]) -> bytes:
     content_length = len(response_body)
     response_headers = f"Content-Type: {content_type}\r\nContent-Length: {content_length}\r\n\r\n"
     if "close" in connection_status:
-        response_headers = response_headers.replace("\r\n", "\r\nConnection: close\r\n\r\n")
+        response_headers = response_headers.replace("\r\n\r\n", "\r\nConnection: close\r\n\r\n")
     response = f"{response_status_line}{response_headers}{response_body}"
     return response.encode()
+
 
 async def main():
     host_ip = '127.0.0.1'
@@ -147,4 +151,4 @@ if __name__ == "__main__":
     except (Exception, KeyboardInterrupt) as e:
         logger.exception("TERMINAL ERROR:")
     finally:
-        logger.info("Server shut down")
+        logger.info("SERVER SHUT DOWN!")
